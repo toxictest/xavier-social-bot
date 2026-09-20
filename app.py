@@ -361,7 +361,7 @@ async def task(request):
             elif name == "poll":
                 result = await do_poll(
                     session,
-                    request.query.get("topic", "Aaj ke topic pe best study strategy kya hai?"),
+                    request.query.get("topic", "CGL ki taiyari me abhi sabse badi mushkil kya hai?"),
                     request.query.get("options", ""),
                 )
             elif name == "video":
