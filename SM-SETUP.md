@@ -69,6 +69,7 @@ Free quota: ~6 video uploads/day + polls/community posts practically unlimited (
 |---|---|
 | 8:00 AM | Morning news post (IG+FB image, YT community) |
 | 6:00 PM | Evening motivation/tip post |
+| Sunday 12:00 PM | Engagement poll (YT pe real poll, IG/FB pe comment-vote) |
 | 7 AM–11 PM, har 30 min | IG + FB comments ka AI reply |
 
 ### Manual trigger (curl ya browser se)
