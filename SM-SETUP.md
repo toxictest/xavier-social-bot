@@ -1,65 +1,90 @@
-# 📱 Social Media Bot — Setup Guide
+# Xavier Social Media Bot — Setup Guide
 
-Alag project, alag env, alag Render service. Main project (Telegram/WhatsApp bot) se poori tarah alag.
+Ek service, **3 platforms** (jo connected hai, wahin post hota hai). Post ek baar AI likhta hai, phir sab jagah cross-post.
 
-## Kya karta hai
-| Task | Time (IST) | Kaam |
-|---|---|---|
-| `morning` | 8:00 AM | Aaj ke current affairs se AI post (image card ke saath) → Instagram auto-post ya Telegram pe manual |
-| `evening` | 6:00 PM | Study motivation + exam tip post → same flow |
-| `comments` | 7 AM–11 PM, har 30 min | Naye Instagram comments ko AI se reply |
+| Post type | Instagram | Facebook | YouTube |
+|---|---|---|---|
+| Image + caption | ✅ auto | ✅ auto | (community me text) |
+| Text post | ❌ | ✅ | ✅ community post |
+| **Poll** | ✅ (image + comment-vote) | ✅ (text) | ✅ (real poll, 24h) |
+| **Video upload** | manual | manual | ✅ auto (TG me video bhejo) |
+| Comment auto-reply | ✅ | ✅ | (v2 me) |
+| Reels/Shorts/Live/Stories | manual | manual | Shorts = video upload |
 
-Trigger kisi bhi jagah nahi chahiye — **Telegram bot (xavier-telegram-bot) ka internal scheduler** yeh service jaagata hai. Isliye yeh service 95% time soya rehta hai = **~0-5 Render hours/month** (750 hr pool pe farak nahi padta).
+---
 
-## Files
+## 1. Render deploy (ek baar)
+
+1. Render → **New → Web Service** → repo `toxictest/xavier-social-bot`
+2. Environment Variables (jo platform use karna hai uske vars daalo):
+   - `GROQ_API_KEY`, `TELEGRAM_BOT_TOKEN`, `OWNER_TG_ID=5573716572`, `TASK_SECRET=xavier-sm-task-2026`
+   - Instagram ke liye: `IG_USER_TOKEN`, `IG_USER_ID`, `IG_PAGE_NAME`
+   - Facebook ke liye: `FB_PAGE_ID`, `FB_PAGE_TOKEN`
+   - YouTube ke liye: `YT_REFRESH_TOKEN`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_CHANNEL_ID`
+3. Deploy. URL milega `https://xavier-social-bot.onrender.com`
+4. **`xavier-telegram-bot` service** pe env add karo: `SOCIAL_BOT_URL=https://xavier-social-bot.onrender.com` (redeploy trigger hoga, scheduler active)
+
+Ab tak ka flow (bina IG/FB/YT token ke bhi): roz 8 AM post + 6 PM post tumhare **Telegram pe aati hai**, tum manually post karte ho.
+
+---
+
+## 2. Instagram connect (Meta Business)
+
+1. Instagram account → **Professional (Business)** banao: Settings → Account type → Switch to professional
+2. [developers.facebook.com](https://developers.facebook.com) → **My Apps → Create App** → Business type
+3. App me **Instagram Graph API** product add karo
+4. Permissions: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`
+5. **Generate Token** (Business Settings → System Users / Graph Explorer se long-lived token) → `IG_USER_TOKEN`
+6. `https://graph.facebook.com/v19.0/me?access_token=...` → jo `id` aaye wo `IG_USER_ID`
+7. App testing mode me hai toh apni Instagram profile ko **Test User** add karo (App Dashboard → Instagram API section)
+
+## 3. Facebook Page connect
+
+1. Facebook **Page** chahiye (personal profile nahi). Naya banao ya existing.
+2. Wahi Meta app (upar banaya) me **Facebook Login / Pages API** permissions: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
+3. Business Settings → **Pages** → apni Page add karo → Page access token generate (long-lived) → `FB_PAGE_TOKEN`
+4. Page ka ID: Page → About → Page ID (ya Graph Explorer `/{page-name}?fields=id`) → `FB_PAGE_ID`
+
+## 4. YouTube connect (Google)
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → project banao
+2. **APIs & Services → Library → YouTube Data API v3 → Enable**
+3. **OAuth consent screen**: External, apna Gmail add karo (Test users me khud)
+4. **Credentials → Create Credentials → OAuth client ID → Desktop app** → Client ID + Secret note karo
+5. Apne PC pe:
+   ```bash
+   pip install requests
+   python3 yt_auth.py
+   ```
+   → Google login + consent do → terminal me 4 env values print hongi (`YT_REFRESH_TOKEN`, `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_CHANNEL_ID`)
+6. Unhe Render env me daalo
+
+Free quota: ~6 video uploads/day + polls/community posts practically unlimited (10,000 units/day).
+
+---
+
+## Tasks (sab TG bot ke scheduler se auto)
+
+| Time (IST) | Task |
+|---|---|
+| 8:00 AM | Morning news post (IG+FB image, YT community) |
+| 6:00 PM | Evening motivation/tip post |
+| 7 AM–11 PM, har 30 min | IG + FB comments ka AI reply |
+
+### Manual trigger (curl ya browser se)
+
+```bash
+B="https://xavier-social-bot.onrender.com"
+# poll — AI options banayega:
+curl "$B/task?name=poll&topic=Best%20strategy%20for%20CGL%3F&token=xavier-sm-task-2026"
+# poll — apne options:
+curl -G "$B/task" --data-urlencode "name=poll" --data-urlencode "topic=Kaunsa subject?" --data-urlencode "options=GS|Reasoning|Maths" --data-urlencode "token=xavier-sm-task-2026"
 ```
-app.py          # Main service (task endpoint)
-content.py      # News RSS + AI prompts
-card.py         # Instagram image card (PIL)
-ig.py           # Instagram Graph API adapter
-render.yaml     # Render service config
-```
 
-## Step 1: Render pe deploy (5 min, bina card ke)
-1. Is repo ko GitHub pe push karo (agent karega)
-2. Render → **New + → Web Service** → GitHub repo `xavier-social-bot`
-3. render.yaml auto-apply hogi (python, `python app.py`, health `/health`)
-4. **Environment variables**:
-   | Name | Value |
-   |---|---|
-   | `GROQ_API_KEY` | tumhari gsk_ key |
-   | `TELEGRAM_BOT_TOKEN` | tumhara bot token |
-   | `OWNER_TG_ID` | `5573716572` |
-   | `IG_USER_TOKEN` | (Step 3 me milega) |
-   | `IG_USER_ID` | (Step 3 me milega) |
-   | `IG_PAGE_NAME` | `@xavier` (apna handle) |
-   | `TASK_SECRET` | `xavier-sm-task-2026` |
-5. Region: **Frankfurt** → Deploy
-6. Health check: `https://xavier-social-bot.onrender.com/health` → "sm-bot alive"
+### Video → YouTube (bot flow)
 
-## Step 2: Telegram bot me link karo (2 min)
-Render pe **xavier-telegram-bot** service → Settings → Environment → nayi variable:
-- `SOCIAL_BOT_URL` = `https://xavier-social-bot.onrender.com`
+1. Apne phone se **@Xavier_dadaBot** ko video bhejo (≤20MB)
+2. Bot download karke social bot ko forward karega
+3. Social bot YouTube pe upload karega, link Telegram pe aayega
 
-(Save karte hi auto-redeploy hoga.) Ab scheduler sab trigger karega.
-
-## Step 3: Instagram API setup (10 min, free)
-1. **Instagram app**: Settings → Account type → **Professional/Creator** (free, personal bhi rahega bas API milegi)
-2. [developers.facebook.com](https://developers.facebook.com) → **Create App** → Type: **Business**
-3. App me **Instagram** product add karo
-4. **Graph API Explorer** (graph.facebook.com) kholo:
-   - Apna IG account login karo
-   - Permissions: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`
-   - **Generate long-lived token** (60 din → usse permanent banao: graph.facebook.com/me?grant_type=fb_exchange_token...)
-   - `/me` endpoint call karo → jo `id` aaye wahi **IG_USER_ID** hai
-5. Token + ID Render ke env me daalo → redeploy
-6. **App Settings → Basic → Add yourself as Test User** (dev mode me sirf test users ka account access hota hai)
-
-> Ab tak token pending rahe toh bhi system chalega — posts **tumhare Telegram pe** aayengi "📱 Manual post karo" ke saath.
-
-## Koi aur platform chahiye?
-Code me `ig.py` jaisa adapter file banao (e.g. `x.py`) + `app.py` me call karo — 30 min ka kaam. Bata dena kaunsa: X / YouTube / Facebook.
-
-## Important
-- Yeh service Render free me hai, par **hours pool share hota hai** — isliye yeh 95% time soya rehta hai (wake-on-task design)
-- Agar Render pool tight ho: yahi repo **Koyeb** (free, bina card, always-on) pe bhi chalega — code same
+Note: Render free tier ki disk **ephemeral** hai — upload ki files redeploy pe saaf ho jaati hain (video upload turant hota hai, isliye issue nahi).
